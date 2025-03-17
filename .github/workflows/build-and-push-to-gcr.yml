@@ -42,16 +42,16 @@ jobs:
         run: |
           # Find the main JAR file
           JAR_PATH=$(find ./target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -n 1)
-          
+
           if [ -z "$JAR_PATH" ]; then
             echo "::error::No JAR file found in target directory"
             exit 1
           fi
-          
+
           echo "Found JAR file at: $JAR_PATH"
           echo "JAR_PATH=$JAR_PATH" >> $GITHUB_ENV
           echo "JAR_NAME=$(basename $JAR_PATH)" >> $GITHUB_ENV
-      
+
       # Step 5: Generate Changelog
       - name: Generate Changelog
         id: changelog
@@ -104,8 +104,27 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ env.IMAGE_TAG }}
-      
-      # Step 9: Create Release
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=${{ env.DOCKER_IMAGE_NAME }}
+            org.opencontainers.image.description="PDF Signer by Zerodha"
+            org.opencontainers.image.vendor="Zerodha"
+
+      # Step 9: Make the package public
+      - name: Make package public
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          NAME="${{ github.repository }}"
+          NAME=$(echo $NAME | sed "s/$OWNER\///")
+
+          echo "Setting package '$NAME' to public visibility"
+          curl -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/orgs/$OWNER/packages/container/$NAME/visibility \
+            -d '{"visibility":"public"}'
+
+      # Step 10: Create Release
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
